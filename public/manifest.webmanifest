@@ -1,0 +1,19 @@
+{
+  "name": "MUSECS",
+  "short_name": "MUSECS",
+  "description": "Realtime social music player",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050506",
+  "theme_color": "#050506",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/musecs-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
