@@ -1,4 +1,4 @@
-export type ProviderId = "itunes" | "deezer" | "soundcloud-demo" | "youtube-demo" | "self-hosted" | "local";
+export type ProviderId = "itunes" | "deezer" | "soundcloud" | "youtube" | "self-hosted" | "musicfree";
 
 export type Track = {
   id: string;

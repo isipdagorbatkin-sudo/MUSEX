@@ -2,8 +2,23 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { tracks } from "./mock-data";
 import type { EqPreset, HistoryEntry, Playlist, RepeatMode, Track, UserProfile } from "./types";
+
+export const emptyTrack: Track = {
+  id: "empty",
+  title: "Выберите трек",
+  artist: "MUSECS",
+  album: "API каталог",
+  duration: 0,
+  sourceUrl: "",
+  provider: "deezer",
+  providerLabel: "Нет активного источника",
+  accent: "#ff5500",
+  accent2: "#5eead4",
+  cover: "MS",
+  waveform: [22, 38, 30, 48, 42, 60, 36, 54, 28, 46, 34, 52],
+  tags: [],
+};
 
 type PlayerState = {
   queue: Track[];
@@ -52,19 +67,17 @@ type PlayerState = {
   addToPlaylist: (playlistId: string, track: Track) => void;
   saveQueueAsPlaylist: (title: string) => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
-  addLocalTrack: (track: Track) => void;
-  addLocalTracks: (items: Track[]) => void;
   recordPlay: (track: Track) => void;
   toggleTheme: () => void;
 };
 
-const defaultProfile: UserProfile = {
-  username: "denis.music",
-  displayName: "Денис",
-  bio: "Личная музыкальная база: лайки, редкие находки, плейлисты и совместное прослушивание.",
-  avatar: "Д",
-  followers: 128,
-  following: 42,
+const emptyProfile: UserProfile = {
+  username: "",
+  displayName: "",
+  bio: "",
+  avatar: "",
+  followers: 0,
+  following: 0,
 };
 
 function boundedVolume(value: number) {
@@ -72,14 +85,14 @@ function boundedVolume(value: number) {
 }
 
 function currentIndex(queue: Track[], currentTrack: Track) {
-  return Math.max(0, queue.findIndex((track) => track.id === currentTrack.id));
+  return queue.findIndex((track) => track.id === currentTrack.id);
 }
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
     (set, get) => ({
-      queue: tracks,
-      currentTrack: tracks[0],
+      queue: [],
+      currentTrack: emptyTrack,
       isPlaying: false,
       isFullscreen: false,
       query: "",
@@ -89,47 +102,40 @@ export const usePlayerStore = create<PlayerState>()(
       isShuffle: false,
       eqPreset: "flat",
       progress: 0,
-      duration: tracks[0].duration,
+      duration: 0,
       likedTrackIds: [],
       dislikedTrackIds: [],
       ratings: {},
       history: [],
       playCounts: {},
-      playlists: [
-        {
-          id: "night-drive",
-          title: "Ночной вайб",
-          description: "Темные, быстрые, глянцевые треки.",
-          coverTrackId: tracks[0].id,
-          trackIds: [tracks[0].id, tracks[1].id],
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      profile: defaultProfile,
+      playlists: [],
+      profile: emptyProfile,
       theme: "dark",
       setQuery: (query) => set({ query }),
       playTrack: (track) =>
         set((state) => ({
           currentTrack: track,
-          isPlaying: true,
+          isPlaying: Boolean(track.sourceUrl),
           progress: 0,
           duration: track.duration,
           queue: state.queue.some((item) => item.id === track.id) ? state.queue : [track, ...state.queue],
         })),
-      togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
+      togglePlay: () => set((state) => ({ isPlaying: Boolean(state.currentTrack.sourceUrl) && !state.isPlaying })),
       stop: () => {
-        document.querySelector("audio")?.pause();
         const audio = document.querySelector("audio");
-        if (audio) audio.currentTime = 0;
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
         set({ isPlaying: false, progress: 0 });
       },
       next: () => {
         const { queue, currentTrack, isShuffle, repeatMode } = get();
         if (!queue.length) return;
         if (repeatMode === "one") {
-          set({ progress: 0, isPlaying: true });
           const audio = document.querySelector("audio");
           if (audio) audio.currentTime = 0;
+          set({ progress: 0, isPlaying: true });
           return;
         }
         const index = currentIndex(queue, currentTrack);
@@ -138,20 +144,20 @@ export const usePlayerStore = create<PlayerState>()(
           set({ isPlaying: false, progress: 0 });
           return;
         }
-        const nextTrack = queue[nextIndex % queue.length];
-        set({ currentTrack: nextTrack, isPlaying: true, progress: 0, duration: nextTrack.duration });
+        const nextTrack = queue[nextIndex < 0 ? 0 : nextIndex % queue.length];
+        set({ currentTrack: nextTrack, isPlaying: Boolean(nextTrack.sourceUrl), progress: 0, duration: nextTrack.duration });
       },
       previous: () => {
         const { queue, currentTrack } = get();
         if (!queue.length) return;
         const index = currentIndex(queue, currentTrack);
         const previousTrack = queue[(index - 1 + queue.length) % queue.length];
-        set({ currentTrack: previousTrack, isPlaying: true, progress: 0, duration: previousTrack.duration });
+        set({ currentTrack: previousTrack, isPlaying: Boolean(previousTrack.sourceUrl), progress: 0, duration: previousTrack.duration });
       },
       setFullscreen: (open) => set({ isFullscreen: open }),
       addNext: (track) => {
         const { queue, currentTrack } = get();
-        const index = currentIndex(queue, currentTrack);
+        const index = Math.max(0, currentIndex(queue, currentTrack));
         const nextQueue = queue.filter((item) => item.id !== track.id);
         nextQueue.splice(index + 1, 0, track);
         set({ queue: nextQueue });
@@ -159,6 +165,7 @@ export const usePlayerStore = create<PlayerState>()(
       removeFromQueue: (trackId) =>
         set((state) => ({
           queue: state.queue.filter((track) => track.id !== trackId),
+          currentTrack: state.currentTrack.id === trackId ? state.queue.find((track) => track.id !== trackId) ?? emptyTrack : state.currentTrack,
         })),
       moveQueueTrack: (fromIndex, toIndex) =>
         set((state) => {
@@ -194,8 +201,7 @@ export const usePlayerStore = create<PlayerState>()(
             : [track.id, ...state.dislikedTrackIds],
           likedTrackIds: state.likedTrackIds.filter((id) => id !== track.id),
         })),
-      rateTrack: (trackId, rating) =>
-        set((state) => ({ ratings: { ...state.ratings, [trackId]: Math.min(5, Math.max(1, rating)) } })),
+      rateTrack: (trackId, rating) => set((state) => ({ ratings: { ...state.ratings, [trackId]: Math.min(5, Math.max(1, rating)) } })),
       createPlaylist: (title, description = "") => {
         const id = crypto.randomUUID();
         set((state) => ({
@@ -216,10 +222,7 @@ export const usePlayerStore = create<PlayerState>()(
         set((state) => ({
           playlists: state.playlists.map((playlist) => (playlist.id === playlistId ? { ...playlist, title: title.trim() || playlist.title } : playlist)),
         })),
-      deletePlaylist: (playlistId) =>
-        set((state) => ({
-          playlists: state.playlists.filter((playlist) => playlist.id !== playlistId),
-        })),
+      deletePlaylist: (playlistId) => set((state) => ({ playlists: state.playlists.filter((playlist) => playlist.id !== playlistId) })),
       addToPlaylist: (playlistId, track) =>
         set((state) => ({
           queue: state.queue.some((item) => item.id === track.id) ? state.queue : [track, ...state.queue],
@@ -240,7 +243,7 @@ export const usePlayerStore = create<PlayerState>()(
               id: crypto.randomUUID(),
               title: title.trim() || "Очередь",
               description: "Сохранено из текущей очереди",
-              coverTrackId: state.currentTrack.id,
+              coverTrackId: state.currentTrack.id !== emptyTrack.id ? state.currentTrack.id : undefined,
               trackIds: state.queue.map((track) => track.id),
               createdAt: new Date().toISOString(),
             },
@@ -248,18 +251,6 @@ export const usePlayerStore = create<PlayerState>()(
           ],
         })),
       updateProfile: (profile) => set((state) => ({ profile: { ...state.profile, ...profile } })),
-      addLocalTrack: (track) =>
-        set((state) => ({
-          currentTrack: track,
-          isPlaying: true,
-          queue: [track, ...state.queue.filter((item) => item.id !== track.id)],
-        })),
-      addLocalTracks: (items) =>
-        set((state) => ({
-          currentTrack: items[0] ?? state.currentTrack,
-          isPlaying: Boolean(items[0]) || state.isPlaying,
-          queue: [...items, ...state.queue.filter((track) => !items.some((item) => item.id === track.id))],
-        })),
       recordPlay: (track) =>
         set((state) => ({
           history: [{ trackId: track.id, playedAt: new Date().toISOString() }, ...state.history].slice(0, 200),
@@ -268,7 +259,7 @@ export const usePlayerStore = create<PlayerState>()(
       toggleTheme: () => set((state) => ({ theme: state.theme === "dark" ? "light" : "dark" })),
     }),
     {
-      name: "musecs-player",
+      name: "musecs-player-v2",
       partialize: (state) => ({
         volume: state.volume,
         isMuted: state.isMuted,

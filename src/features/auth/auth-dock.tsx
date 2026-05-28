@@ -36,9 +36,7 @@ export function AuthDock() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      options: { emailRedirectTo: window.location.origin },
     });
 
     setStatus(error ? "error" : "sent");
@@ -49,26 +47,21 @@ export function AuthDock() {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: window.location.origin,
-      },
+      options: { redirectTo: window.location.origin },
     });
   }
 
   if (!isConfigured) {
     return (
       <section className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/8 p-3 text-xs text-amber-100">
-        Supabase env не настроен. Заполни <span className="font-mono">.env.local</span>, чтобы включить вход.
+        Supabase env не настроен. Добавь переменные в Vercel, чтобы включить вход.
       </section>
     );
   }
 
   if (userEmail) {
     return (
-      <motion.section
-        layout
-        className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/8 px-3 py-2"
-      >
+      <motion.section layout className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/8 px-3 py-2">
         <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-300/15 text-emerald-100">
           <ShieldCheck size={18} />
         </div>
@@ -84,7 +77,7 @@ export function AuthDock() {
     <motion.section layout className="mt-3 rounded-2xl border border-white/10 bg-white/[0.045] p-3">
       <div className="mb-3 flex items-center gap-2 text-xs text-[var(--text-muted)]">
         <UserRound size={15} />
-        Supabase Auth для профиля, друзей и live-сессий
+        Supabase Auth для профиля, плейлистов и будущих live-сессий
       </div>
       <div className="flex gap-2">
         <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/24 px-3">
@@ -120,4 +113,3 @@ export function AuthDock() {
     </motion.section>
   );
 }
-
